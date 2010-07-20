@@ -6,6 +6,17 @@
 	m3: 		.asciiz "Digite um número da matriz" 
 	failure:	.asciiz "You fail"
 .text
+.globl main
+main:
+	jal escreve_matriz
+	
+	jal imprime_matriz
+	
+	jal gauss
+	
+	# Sai do programa
+	li $v0, 10
+	syscall
 
 escreve_matriz:
 	li $v0, 4
@@ -36,6 +47,7 @@ loop:
 	sdc1 $f0, 0($sp)							#guarda o valor na pilha
 	addi $sp, $sp, 8							#incrementa pilha
 	bne $t2, $t5, loop							#contador != nº de termos? (1) volte ao loop; (0) continue
+	jr $ra
 
 imprime_matriz:
 	add $t5, $zero, $zero						#zera contador primário
@@ -64,6 +76,8 @@ loop2:
 	li $v0, 4									#carrega string
 	la $a0, newl								#Pula linha
 	syscall
+	
+	jr $ra
 
 det_matriz:
 	add $t5, $zero, $zero						#contador = 0
@@ -153,8 +167,109 @@ loop4:
 ## a0 deve ser o início da matriz
 ## a1 deve ser o número de linhas (o número de colunas tem que ser o de linhas + 1)
 gauss:
-	j fim #não entrando aqui por enquanto
-	add $t4, $zero, $zero						#contador da linha
+	sub $sp, $sp, $t3							#volta ao primeiro valor da matriz
+	la $s0, 0($sp)								#armazena o endereço do primeiro valor da matriz
+	
+	# Cria a matriz identidade
+	# Carrega o zero em $f0
+	add $t5, $zero, $zero
+	mtc1 $t5, $f0
+	cvt.d.w $f0, $f0
+	# Carrega o um em $f2
+	addi $t5, $zero, 1
+	mtc1 $t5, $f2
+	cvt.d.w $f2, $f2
+	
+	sub $sp, $sp, $t3							#abre na pilha t3 espaços
+	la $s1, 0($sp)								#armazena o endereço do primeiro valor da matriz identidade
+	add $t4, $zero, $zero						#zero contador da linha
+for_ident_r:
+	beq $t4, $t0, fim_ident_r
+	add $t5, $zero, $zero						#zera contador da coluna
+for_ident_c:
+	beq $t5, $t0, fim_ident_c
+	mov.d $f4, $f2								#carrega 1 em $f4
+	beq $t4, $t5, ident_save					#testa se o nro da linha é igual ao da coluna
+	mov.d $f4, $f0								#carrega 0 em $f4
+ident_save:
+	sdc1 $f4, 0($sp)							#guarda o valor na pilha
+	addi $sp, $sp, 8							#incrementa pilha
+	addi $t5, $t5, 1							#coluna = coluna + 1
+	j for_ident_c
+fim_ident_c:
+	addi $t4, $t4, 1							#linha = linha + 1
+	j for_ident_r
+fim_ident_r:
+	#jr $ra
+#saindo dessa função temos na memória a matriz original e a matriz identidade de mesma ordem na memória
+	
+augmented:
+	sub $sp, $sp, $t3							#volta ao primeiro valor da matriz identidade
+	sll $t4, $t3, 2
+	sub $sp, $sp, $t4							#abre + 2 vezes o tamanho da matriz para a matriz aumentada
+	la $s2, 0($sp)								#armazena o endereço do primeiro valor da matriz aumentada
+	
+	#Parte 1 para carregar a matriz aumentada
+	add $t4, $zero, $zero						#zera o contador auxiliar
+	add $t5, $zero, $zero						#zera o contador da linha
+for_aug1_r:
+	beq $t5, $t0, fim_aug1_r
+	add $t6, $zero, $zero						#zera o contador da coluna
+for_aug1_c:
+	beq $t6, $t0, fim_aug1_c
+	mul $t7, $t5, $t0
+	add $t7, $t7, $t6							#elemento = linha*nro_colunas + coluna
+	sll $t7, $t7, 3
+	add $t7, $s0, $t7
+	ldc1 $f0, 0($t7)							#carrega valor da matriz em f0
+	add $t7, $t4, $t6
+	sll $t7, $t7, 3
+	add $t7, $s2, $t7
+	sdc1 $f0, 0($t7)
+	addi $t6, $t6, 1
+	j for_aug1_c
+fim_aug1_c:
+	addi $t5, $t5, 1
+	add $t4, $t4, $t2							#pula n elementos
+	j for_aug1_r
+fim_aug1_r:
+	#jr $ra
+	
+	# ldc1 $f12, 0($sp)							#carrega valor em f12
+	# li $v0, 3									#imprime valor
+	# syscall
+	# li $v0, 4									#carrega string
+	# la $a0, newl								#Pula linha
+	# syscall
+	#Parte 2 para carregar a matriz aumentada
+	add $t4, $zero, $zero						#zera o contador auxiliar
+	add $t5, $zero, $zero						#zera o contador da linha
+for_aug2_r:
+	beq $t5, $t0, fim_aug2_r
+	add $t6, $zero, $t0							#zera o contador da coluna
+for_aug2_c:
+	sll $t7, $t0, 1
+	beq $t6, $t7, fim_aug2_c					#vai até 2*n
+	mul $t7, $t5, $t0
+	add $t7, $t7, $t6							#elemento = linha*nro_colunas + coluna
+	sub $t7, $t7, $t0
+	sll $t7, $t7, 3
+	add $t7, $s1, $t7
+	ldc1 $f0, 0($t7)							#carrega valor da matriz em f0
+	add $t7, $t4, $t6
+	sll $t7, $t7, 3
+	add $t7, $s2, $t7
+	sdc1 $f0, 0($t7)
+	addi $t6, $t6, 1
+	j for_aug2_c
+fim_aug2_c:
+	addi $t5, $t5, 1
+	add $t4, $t4, $t2							#pula n elementos
+	j for_aug2_r
+fim_aug2_r:
+	#jr $ra
+
+	
 
 ## a0 deve ser o início da matriz
 ## a1 deve ser o número de linhas (o número de colunas tem que ser o de linhas + 1)
