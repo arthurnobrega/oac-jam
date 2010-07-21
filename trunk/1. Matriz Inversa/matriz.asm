@@ -1,10 +1,11 @@
 .data
-	newl:		.asciiz "\n"
-	tab:		.asciiz "\t"
-	m1:			.asciiz "Digite o número de linhas"
-	m2:			.asciiz "Digite o número de colunas"
-	m3: 		.asciiz "Digite um número da matriz" 
-	failure:	.asciiz "You fail"
+	newl:			.asciiz "\n"
+	tab:			.asciiz "\t"
+	m1:				.asciiz "Digite o número de linhas"
+	m2:				.asciiz "Digite o número de colunas"
+	m3: 			.asciiz "Digite um número da matriz" 
+	failure:		.asciiz "You fail"
+	notinversible:	.asciiz "Matrix not inversible!"
 .text
 .globl main
 main:
@@ -79,91 +80,6 @@ loop2:
 	
 	jr $ra
 
-det_matriz:
-	add $t5, $zero, $zero						#contador = 0
-	add $t6, $zero, $zero						#cont. linha inicial = 0
-	add $t8, $t1, $zero							#cont. qual linha
-	div $t7, $t3, $t1							#termos em uma linha
-	add $t9, $zero, $zero						#checar se excedeu o número de linhas
-	sub $sp, $sp, $t7							#volta ao começo da matriz
-	mtc1 $t8, $f2								#move int pra double
-	cvt.d.w $f2, $f2							#converte nº para double
-	controle: ldc1 $f6, 0($sp)					#carrega o termo da pilha
-	c.eq.d 1,$f6, $f8							#checa se o termo = 0 e armazena na flag 1
-	bc1t 1, troca								#chega se flag 1 = 0
-	j go_on										#pulo para continuar método
-	troca: add $sp, $sp, $t7					#vai para a próxima linha da pilha
-	addi $t6, $t6, 1							#contador da linha = linha +1
-	slt $t9, $t0, $t6							#número de linhas excedido?
-	beq $t9, $zero, fail						#primeira linha feita de zeros -> det = 0
-	j controle									#teste a próxima linha
-
-go_on:
-	beq $t6, $t8, primeira_linha
-
-primeira_linha: 
-
-inverte_matriz:
-	sub $sp, $sp, $t3							#começo da matriz
-	sub $sp, $sp, $t3							#abre t2 mais termos na matriz
-	add $t5, $zero, $zero						#zera cont.1 (nº de termos)
-	addi $t6, $zero, 0							#zera cont.2 (qual elemento da linha?)
-	addi $t7, $zero, 0							#zera cont.3 (qual elemento da coluna?)
-	add $t8, $zero, $zero						#zera cont.4
-	addi $t8, $t8, 1							#1 em cont.4(para passar 1 pro float)
-	mtc1 $t8, $f2								#move int pra double
-	cvt.d.w $f2, $f2							#converte nº para double
-	mtc1 $t5, $f4								#move int pra double
-	cvt.d.w $f4, $f4							#converte nº para double
-loop3:
-	sdc1 $f4, 0($sp)							#armazena 0 no termo
-	addi $t5, $t5, 1							#incrementa cont. 1
-	beq $t6, $t7, arruma						# i = j? vai pro método arruma
-	continua: 									
-	addi $sp, $sp, 8							#incrementa pilha
-	addi $t6, $t6, 1							#incrementa cont. 2
-	bne $t6, $t1, loop3							#elemento linha = último?
-	add $t6, $zero, $zero 						#zera contador termo linha
-	addi $t7, $t7, 1							#próxima linha
-	bne $t5, $t2, loop3							#cont. = último termo?
-	j parte2									#avança para o método seguinte de inversão
-	arruma: sdc1 $f2, 0($sp)					#armazena 1 no termo (ao ínves do antigo 0 )
-	j continua									#volta para o método continua
-
-parte2: 									#imprime a identidade da ordem equivalente da matriz inicial
-	add $t5, $zero, $zero						#zera contador primário
-	add $t6, $zero, $zero						#zera contador secundário
-	sub $sp, $sp, $t3							#volta ao primeiro valor da pilha
-loop4:
-	ldc1 $f12, 0($sp)							#carrega valor em f12
-	li $v0, 3									#imprime valor
-	syscall
-	li $v0, 4									#carrega string
-	la $a0, tab									#tab
-	syscall
-	li $v0, 4									#carrega string
-	la $a0, tab									#tab
-	syscall
-	addi $sp, $sp, 8							#incremento para o próximo elemento da pilha
-	addi $t5, $t5, 1							#incrementa contador primário
-	addi $t6, $t6, 1							#incrementa contador secundário
-	bne $t6, $t1, loop4							#cont. secundário != nº colunas?
-	add $t6, $zero,$zero						#zera cont. secundário
-	li $v0, 4									#carrega string
-	la $a0, newl								#Pula linha
-	syscall
-	bne $t5, $t2, loop4							#cont. primário = nº de termos?
-
-	li $v0, 4									#carrega string
-	la $a0, newl								#Pula linha
-	syscall
-
-	add $t5, $zero, $zero						#cont. primário = 0
-	add $t6, $zero, $zero						#linha = 0
-	add $t7, $zero, $zero						#coluna = 0
-	add $t8, $zero, $zero						#cont. secundário = 0
-	add $t9, $zero, $zero						#não sei, mas vai usar com certeza = 0
-
 ## a0 deve ser o início da matriz
 ## a1 deve ser o número de linhas (o número de colunas tem que ser o de linhas + 1)
 gauss:
@@ -203,7 +119,7 @@ fim_ident_r:
 	#jr $ra
 	#j imprime_matriz
 #saindo dessa função temos na memória a matriz original e a matriz identidade de mesma ordem na memória
-	
+
 augmented:
 	sub $sp, $sp, $t3							#volta ao primeiro valor da matriz identidade
 	sll $t4, $t3, 2
@@ -271,6 +187,218 @@ fim_aug2_c:
 	j for_aug2_r
 fim_aug2_r:
 	#jr $ra
+	
+	#Pivoteamento e troca de linhas
+	add $t4, $zero, $zero						#zera contador de loops
+for_echelon1:
+	sub $t9, $t0, 1
+	beq $t4, $t9, fim_echelon1
+	add $t5, $zero, $t4							#inicializa contador da linha
+for_echelon1_r:
+	beq $t5, $t0, fim_echelon1_r
+	add $t6, $zero, $t5							#inicializa o testador do pivo
+	add $t7, $zero, $t5							#inicializa a coluna atual
+for_echelon1_c:
+	beq $t7, $t0, fim_echelon1_c
+	
+	#Carrega o temp
+	sll $t8, $t0, 1
+	mul $t8, $t6, $t8
+	add $t8, $t8, $t4							#elemento = linha*nro_colunas + coluna
+	sll $t8, $t8, 3
+	add $t8, $s2, $t8
+	ldc1 $f0, 0($t8)							#temp
+	
+	#Carrega o candidato a pivo
+	sll $t9, $t0, 1
+	mul $t9, $t7, $t9
+	add $t9, $t9, $t4							#elemento = linha*nro_colunas + coluna
+	sll $t9, $t9, 3
+	add $t9, $s2, $t9
+	ldc1 $f2, 0($t9)							#m[i][j]
+	
+	c.lt.d $f0, $f2
+	bc1f echelon1_c_cont
+	add $t6, $zero, $t7
+echelon1_c_cont:
+	addi $t7, $t7, 1
+	j for_echelon1_c
+fim_echelon1_c:
+	add $t7, $zero, $zero						#zera o contador da coluna atual
+for_swap:
+	sll $t8, $t0, 1
+	beq $t7, $t8, fim_swap
+	
+	#Carrega o valor do novo pivo
+	sll $t8, $t0, 1
+	mul $t8, $t5, $t8
+	add $t8, $t8, $t7							#elemento = linha*nro_colunas + coluna
+	sll $t8, $t8, 3
+	add $t8, $s2, $t8
+	ldc1 $f0, 0($t8)							#temp
+	
+	#Troca o valor da coluna
+	sll $t9, $t0, 1
+	mul $t9, $t6, $t9
+	add $t9, $t9, $t7							#elemento = linha*nro_colunas + coluna
+	sll $t9, $t9, 3
+	add $t9, $s2, $t9
+	ldc1 $f2, 0($t9)							#salva o valor temporariamente
+	sdc1 $f2, 0($t8)							#salva o valor da coluna na que era do pivo
+	sdc1 $f0, 0($t9)							#salva a coluna do novo pivo nesta
+	
+	addi $t7, $t7, 1
+	j for_swap
+fim_swap:
+	addi $t5, $t5, 1
+	j for_echelon1_r
+fim_echelon1_r:
+
+	
+	
+	#REDUCE ECHELON
+	add $t5, $zero, $t4							#inicializa o contador da linha
+for_reduce_r:
+	sub $t6, $t0, 1
+	beq $t5, $t6, fim_reduce_r
+	
+	#Carrega o valor do pivo
+	sll $t6, $t0, 1
+	mul $t6, $t4, $t6
+	add $t6, $t6, $t4							#elemento = linha*nro_colunas + coluna
+	sll $t6, $t6, 3
+	add $t6, $s2, $t6
+	ldc1 $f0, 0($t6)							#m[i][i]
+	
+	#CHECAR
+	#Carrega o valor abaixo do pivo
+	sll $t6, $t0, 1
+	addi $t9, $t5, 1
+	mul $t6, $t9, $t6
+	add $t6, $t6, $t4							#elemento = linha*nro_colunas + coluna
+	sll $t6, $t6, 3
+	add $t6, $s2, $t6
+	ldc1 $f2, 0($t6)							#m[i][(cur_row + 1)]
+	
+	#Calcula o fator
+	div.d $f0, $f2, $f0
+	add $t6, $zero, $t4							#inicializa o contador da coluna
+for_reduce_c:
+	sll $t7, $t0, 1
+	beq $t6, $t7, fim_reduce_c
+	
+	#Carrega o valor do elemento da linha
+	sll $t7, $t0, 1
+	addi $t9, $t5, 1
+	mul $t7, $t9, $t7
+	add $t7, $t7, $t6							#elemento = linha*nro_colunas + coluna
+	sll $t7, $t7, 3
+	add $t7, $s2, $t7
+	ldc1 $f2, 0($t7)							#m[cur_column][(cur_row + 1)]
+	
+	#Carrega o valor do elemento
+	sll $t8, $t0, 1
+	mul $t8, $t4, $t8
+	add $t8, $t8, $t6							#elemento = linha*nro_colunas + coluna
+	sll $t8, $t8, 3
+	add $t8, $s2, $t8
+	ldc1 $f4, 0($t8)							#m[cur_column][i]
+	
+	mul.d $f6, $f0, $f4
+	sub.d $f8, $f2, $f6							#calcula L' = Lp*fator + L
+	sdc1 $f8, 0($t7)
+	
+	addi $t6, $t6, 1
+	j for_reduce_c
+fim_reduce_c:
+	addi $t5, $t5, 1
+	j for_reduce_r
+fim_reduce_r:
+
+	#Testa se a matriz é inversível
+	sll $t5, $t0, 1
+	mul $t5, $t4, $t5
+	add $t5, $t5, $t4							#elemento = linha*nro_colunas + coluna
+	sll $t5, $t5, 3
+	add $t5, $s2, $t5
+	ldc1 $f0, 0($t5)							#m[cur_column][(cur_row + 1)]
+	
+	mtc1 $zero, $f2
+	cvt.d.w $f2, $f2
+	c.eq.d $f0, $f2
+	bc1t fail2
+	
+	add $t4, $t4, 1
+	j for_echelon1
+fim_echelon1:
+	
+	#ATÉ AQUI TÁ CERTO MAS FALTA ARREDONDAR
+	
+	#REVERSE MATRIX
+	subi $t4, $t0, 1							#inicializa o contador de loops
+for_reverse1:
+	beq $t4, $zero, fim_reverse1
+	add $t5, $zero, $t4						#inicializa o contador de linhas
+for_reverse1_r:
+	beq $t5, $zero, fim_reverse1_r
+	
+	#Carrega o valor do m[i][i]
+	sll $t6, $t0, 1
+	mul $t6, $t4, $t6
+	add $t6, $t6, $t4							#elemento = linha*nro_colunas + coluna
+	sll $t6, $t6, 3
+	add $t6, $s2, $t6
+	ldc1 $f0, 0($t6)							#m[i][i]
+	
+	#Carrega o valor m[i][(cur_row - 1)]
+	sll $t7, $t0, 1
+	subi $t9, $t5, 1
+	mul $t6, $t9, $t7
+	add $t6, $t6, $t4							#elemento = linha*nro_colunas + coluna
+	sll $t6, $t6, 3
+	add $t6, $s2, $t6
+	ldc1 $f2, 0($t6)							#m[i][(cur_row - 1)]
+	
+	#Calcula o fator
+	div.d $f0, $f2, $f0							#f0 = fator
+	
+	add $t6, $zero, $t4							#inicializa o contador da coluna
+for_reverse1_c:
+	sll $t7, $t0, 1
+	beq $t6, $t7, fim_reverse1_c
+	
+	#Carrega o valor do elemento da linha
+	sll $t7, $t0, 1
+	subi $t9, $t5, 1
+	mul $t8, $t9, $t7
+	add $t8, $t8, $t6							#elemento = linha*nro_colunas + coluna
+	sll $t8, $t8, 3
+	add $t8, $s2, $t8
+	ldc1 $f2, 0($t8)							#m[cur_column][(cur_row - 1)]
+	
+	#Carrega o valor do elemento
+	sll $t9, $t0, 1
+	mul $t9, $t4, $t9
+	add $t9, $t9, $t6							#elemento = linha*nro_colunas + coluna
+	sll $t9, $t9, 3
+	add $t9, $s2, $t9
+	ldc1 $f4, 0($t9)							#m[cur_column][i]
+	
+	mul.d $f6, $f0, $f4
+	sub.d $f8, $f2, $f6							#calcula
+	sdc1 $f8, 0($t8)
+	
+	addi $t6, $t6, 1
+	j for_reverse1_c
+fim_reverse1_c:
+	subi $t5, $t5, 1
+	j for_reverse1_r
+fim_reverse1_r:
+	subi $t4, $t4, 1
+	j for_reverse1
+fim_reverse1:
+
+	
 	add $t4, $zero, $zero
 for_x_r:
 	beq $t4, $t0, fim_x_r
@@ -285,16 +413,13 @@ for_x_c:
 	ldc1 $f12, 0($t7)							#carrega valor da matriz em f0
 	li $v0, 3
 	syscall
+	li $v0, 4									#carrega string
+	la $a0, tab									#tab
+	syscall
 	addi $t5, $t5, 1
 	j for_x_c
 fim_x_c:
 	addi $t4, $t4, 1
-	#mov.d $f12, $f0
-	#li $v0, 3									#imprime valor
-	#syscall
-	#li $v0, 4									#carrega string
-	#la $a0, newl								#Pula linha
-	#syscall
 	li $v0, 4
 	la $a0, newl
 	syscall
@@ -303,56 +428,107 @@ fim_x_r:
 	jr $ra
 	
 
-## a0 deve ser o início da matriz
-## a1 deve ser o número de linhas (o número de colunas tem que ser o de linhas + 1)
-## a2 deve ser a linha do pivô candidato (começando de zero)
-verifica_pivo:
-	addi $s0, $a1, 1							#armazena o número de colunas (linhas + 1)
-	mul $s1, $a1, $s0							#linhas*colunas = número de termos
-	sub $a0, $a0, $s1							#volta ao primeiro valor da pilha
-	add $t5, $zero, $a2							#seta nova linha para a linha do pivo
-	addi $t6, $t5, 1							#seta o início dos testes para uma linha abaixo da do pivô
+	#CANONICAL MATRIX
+	add $t4, $zero, $zero						#inicializa o contador de linhas
+for_canonical_r:
+	beq $t4, $t0, fim_canonical_r
 	
-	mul $t8, $t5, $s0
-	add $t8, $t8, $a2							#pega o candidato a pivô
-	sll $t8, $t8, 3								#multiplica por 8
-	add $t8, $a0, $t8							#pega o endereço do valor
-	ldc1 $f0, 0($t8)							#pega o valor
+	#Carrega o valor do fator
+	sll $t5, $t0, 1
+	mul $t5, $t4, $t5
+	add $t5, $t5, $t4							#elemento = linha*nro_colunas + coluna
+	sll $t5, $t5, 3
+	add $t5, $s2, $t5
+	ldc1 $f0, 0($t5)
 	
-pivo_for:
-	sub $t7, $a1, $t6							#subtrai o número de linhas do número da linha
-	slti $t7, $t7, 1							#verifica se o resultado acima é menor que 1
-	bne $t7, $zero, pivo_fim
+	add $t5, $zero, $t4							#inicializa o contador de colunas
+for_canonical_c:
+	sll $t6, $t0, 1
+	beq $t5, $t6, fim_canonical_c
 	
-	mul $t8, $t6, $s0
-	add $t8, $t8, $a2							#pega o candidato a pivô
-	sll $t8, $t8, 3								#multiplica por 8
-	add $t8, $a0, $t8							#pega o endereço do valor
-	ldc1 $f2, 0($t8)							#pega o valor
+	#Carrega o valor do elemento
+	sll $t6, $t0, 1
+	mul $t6, $t4, $t6
+	add $t6, $t6, $t5							#elemento = linha*nro_colunas + coluna
+	sll $t6, $t6, 3
+	add $t6, $s2, $t6
+	ldc1 $f2, 0($t6)
 	
-	c.lt.d 0, $f0, $f2
-	bc1f 0, pivo_continua						#verifica se o valor é maior que o do pivô candidato
-	add $t5, $zero, $t6							#troca a linha do pivô
-pivo_continua:
-	addi $t6, $t6, 1							#incrementa o contador
-	j pivo_for
+	div.d $f4, $f2, $f0
+	sdc1 $f4, 0($t6)							#armazena o valor do elemento/fator
 	
-pivo_fim:
-	#TESTAR SE O NOVO PIVO É DIFERENTE DE $a2
-
-pivo_return:
-	jr $ra
-
-## a0 deve ser o início da matriz
-## a1 deve ser o número de linhas (o número de colunas tem que ser o de linhas + 1)
-## a2 deve ser a linha1
-## a3 deve ser a linha2
-troca_linhas:
+	addi $t5, $t5, 1
+	j for_canonical_c
+fim_canonical_c:
+	addi $t4, $t4, 1
+	j for_canonical_r
+fim_canonical_r:
 	
-
+	#Abre espaço para a matriz inversa e salva em $s3
+	move $sp, $s2
+	sll $t4, $t2, 3
+	sub $sp, $sp, $t4
+	add $s3, $sp, $zero
+	
+	add $t4, $zero, $zero
+for_inverse_r:
+	beq $t4, $t0, fim_inverse_r
+	add $t5, $zero, $zero
+for_inverse_c:
+	beq $t5, $t0, fim_inverse_c
+	
+	#Carrega o valor do elemento
+	mul $t6, $t4, $t0
+	add $t6, $t6, $t5							#elemento = linha*nro_colunas + coluna
+	add $t6, $t6, $t0							#soma número de colunas
+	sll $t6, $t6, 3
+	add $t6, $s2, $t6
+	ldc1 $f0, 0($t6)
+	
+	#Salva o valor na matriz inversa
+	mul $t6, $t4, $t0
+	add $t6, $t6, $t5							#elemento = linha*nro_colunas + coluna
+	sll $t6, $t6, 3
+	add $t6, $s3, $t6
+	sdc1 $f0, 0($t6)
+	
+	addi $t5, $t5, 1
+	j for_inverse_c
+fim_inverse_c:
+	addi $t4, $t4, 1
+	j for_inverse_r
+fim_inverse_r:
+	
+	
+	
+	
 fail: 
 	li $v0, 4
 	la $a0, failure								#imprime string
 	syscall
 
-fim: 
+fail2:
+	li $v0, 4
+	la $a0, notinversible						#imprime string
+	syscall
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
