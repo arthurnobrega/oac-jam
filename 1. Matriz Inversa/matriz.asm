@@ -201,6 +201,7 @@ fim_ident_c:
 	j for_ident_r
 fim_ident_r:
 	#jr $ra
+	#j imprime_matriz
 #saindo dessa função temos na memória a matriz original e a matriz identidade de mesma ordem na memória
 	
 augmented:
@@ -230,7 +231,8 @@ for_aug1_c:
 	j for_aug1_c
 fim_aug1_c:
 	addi $t5, $t5, 1
-	add $t4, $t4, $t2							#pula n elementos
+	sll $t7, $t0, 1
+	add $t4, $t4, $t7							#pula n elementos
 	j for_aug1_r
 fim_aug1_r:
 	#jr $ra
@@ -264,11 +266,41 @@ for_aug2_c:
 	j for_aug2_c
 fim_aug2_c:
 	addi $t5, $t5, 1
-	add $t4, $t4, $t2							#pula n elementos
+	sll $t7, $t0, 1
+	add $t4, $t4, $t7							#pula n elementos
 	j for_aug2_r
 fim_aug2_r:
 	#jr $ra
-
+	add $t4, $zero, $zero
+for_x_r:
+	beq $t4, $t0, fim_x_r
+	add $t5, $zero, $zero
+for_x_c:
+	sll $t6, $t0, 1
+	beq $t5, $t6, fim_x_c
+	mul $t7, $t4, $t6
+	add $t7, $t7, $t5							#elemento = linha*nro_colunas + coluna
+	sll $t7, $t7, 3
+	add $t7, $s2, $t7
+	ldc1 $f12, 0($t7)							#carrega valor da matriz em f0
+	li $v0, 3
+	syscall
+	addi $t5, $t5, 1
+	j for_x_c
+fim_x_c:
+	addi $t4, $t4, 1
+	#mov.d $f12, $f0
+	#li $v0, 3									#imprime valor
+	#syscall
+	#li $v0, 4									#carrega string
+	#la $a0, newl								#Pula linha
+	#syscall
+	li $v0, 4
+	la $a0, newl
+	syscall
+	j for_x_r
+fim_x_r:
+	jr $ra
 	
 
 ## a0 deve ser o início da matriz
