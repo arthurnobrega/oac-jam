@@ -331,6 +331,7 @@ fim_reduce_r:
 	add $t4, $t4, 1
 	j for_echelon1
 fim_echelon1:
+
 	
 	#ATÉ AQUI TÁ CERTO MAS FALTA ARREDONDAR
 	
@@ -361,6 +362,7 @@ for_reverse1_r:
 	
 	#Calcula o fator
 	div.d $f0, $f2, $f0							#f0 = fator
+	
 	
 	add $t6, $zero, $t4							#inicializa o contador da coluna
 for_reverse1_c:
@@ -398,34 +400,8 @@ fim_reverse1_r:
 	j for_reverse1
 fim_reverse1:
 
+
 	
-	add $t4, $zero, $zero
-for_x_r:
-	beq $t4, $t0, fim_x_r
-	add $t5, $zero, $zero
-for_x_c:
-	sll $t6, $t0, 1
-	beq $t5, $t6, fim_x_c
-	mul $t7, $t4, $t6
-	add $t7, $t7, $t5							#elemento = linha*nro_colunas + coluna
-	sll $t7, $t7, 3
-	add $t7, $s2, $t7
-	ldc1 $f12, 0($t7)							#carrega valor da matriz em f0
-	li $v0, 3
-	syscall
-	li $v0, 4									#carrega string
-	la $a0, tab									#tab
-	syscall
-	addi $t5, $t5, 1
-	j for_x_c
-fim_x_c:
-	addi $t4, $t4, 1
-	li $v0, 4
-	la $a0, newl
-	syscall
-	j for_x_r
-fim_x_r:
-	jr $ra
 	
 
 	#CANONICAL MATRIX
@@ -463,11 +439,14 @@ fim_canonical_c:
 	addi $t4, $t4, 1
 	j for_canonical_r
 fim_canonical_r:
-	
+
+
+
+
+	#MATRIZ INVERSA
 	#Abre espaço para a matriz inversa e salva em $s3
 	move $sp, $s2
-	sll $t4, $t2, 3
-	sub $sp, $sp, $t4
+	sub $sp, $sp, $t3
 	add $s3, $sp, $zero
 	
 	add $t4, $zero, $zero
@@ -478,7 +457,8 @@ for_inverse_c:
 	beq $t5, $t0, fim_inverse_c
 	
 	#Carrega o valor do elemento
-	mul $t6, $t4, $t0
+	sll $t7, $t0, 1
+	mul $t6, $t4, $t7
 	add $t6, $t6, $t5							#elemento = linha*nro_colunas + coluna
 	add $t6, $t6, $t0							#soma número de colunas
 	sll $t6, $t6, 3
@@ -499,7 +479,33 @@ fim_inverse_c:
 	j for_inverse_r
 fim_inverse_r:
 	
-	
+	#MOSTRA A MATRIZ INVERTIDA
+	add $t4, $zero, $zero
+for_x_r:
+	beq $t4, $t0, fim_x_r
+	add $t5, $zero, $zero
+for_x_c:
+	beq $t5, $t0, fim_x_c
+	mul $t7, $t4, $t0
+	add $t7, $t7, $t5							#elemento = linha*nro_colunas + coluna
+	sll $t7, $t7, 3
+	add $t7, $s3, $t7
+	ldc1 $f12, 0($t7)							#carrega valor da matriz em f0
+	li $v0, 3
+	syscall
+	li $v0, 4									#carrega string
+	la $a0, tab									#tab
+	syscall
+	addi $t5, $t5, 1
+	j for_x_c
+fim_x_c:
+	addi $t4, $t4, 1
+	li $v0, 4
+	la $a0, newl
+	syscall
+	j for_x_r
+fim_x_r:
+	jr $ra
 	
 	
 fail: 
@@ -511,24 +517,3 @@ fail2:
 	li $v0, 4
 	la $a0, notinversible						#imprime string
 	syscall
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
