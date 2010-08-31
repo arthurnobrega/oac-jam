@@ -9,17 +9,47 @@
 .text
 .globl main
 main:
-	jal escreve_matriz
+	jal le_matriz
+	lw $s0, 0($v0)			#endereço M1
+	lw $s1, 4($v0)			#linhas M1
+	lw $s2, 8($v0)			#colunas M1
 	
+	jal le_matriz
+	lw $s3, 0($v0)			#endereço M2
+	lw $s4, 4($v0)			#linhas M2
+	lw $s5, 8($v0)			#colunas M2
+	
+	move $a0, $s0
+	move $a1, $s1
+	move $a2, $s2
 	jal imprime_matriz
 	
-	jal gauss
+	move $a0, $s3
+	move $a1, $s4
+	move $a2, $s5
+	jal imprime_matriz
+	
+	#jal gauss
+	
+	subi $sp, $sp, 24
+	sw $s0, 0($sp)
+	sw $s1, 4($sp)
+	sw $s2, 8($sp)
+	sw $s3, 12($sp)
+	sw $s4, 16($sp)
+	sw $s5, 20($sp)
+	jal mult_matrizes
+	
+	move $a0, $sp
+	move $a1, $s1
+	move $a2, $s5
+	jal imprime_matriz
 	
 	# Sai do programa
 	li $v0, 10
 	syscall
 
-escreve_matriz:
+le_matriz:
 	li $v0, 4
 	la $a0, m1									#imprime string
 	syscall
@@ -33,10 +63,9 @@ escreve_matriz:
 	syscall
 	add $t1, $v0, $zero							#t1 = nº de colunas
 	mul $t2, $t1, $t0							#t2 = nº de termos
-	add $t3, $t2, $t2
-	add $t3, $t3, $t3							#t3 = 4*t2 (utilizado para abrir espaço na pilha)
-	add $t3, $t3, $t3							#t3 = 8*t2
+	sll $t3, $t2, 3
 	sub $sp, $sp, $t3							#abre na pilha t3 espaços
+	move $t6, $sp
 	add $t5, $zero, $zero						#t5 = contador (zerando)
 loop:
 	li $v0, 4
@@ -45,17 +74,28 @@ loop:
 	li $v0, 7
 	syscall										#valor dos termos
 	addi $t5, $t5, 1							#contador = contador + 1
-	sdc1 $f0, 0($sp)							#guarda o valor na pilha
-	addi $sp, $sp, 8							#incrementa pilha
+	sdc1 $f0, 0($t6)							#guarda o valor na pilha
+	addi $t6, $t6, 8							#incrementa pilha
 	bne $t2, $t5, loop							#contador != nº de termos? (1) volte ao loop; (0) continue
+	
+	move $t6, $sp
+	subi $sp, $sp, 12
+	sw $t6, 0($sp)
+	sw $t0, 4($sp)
+	sw $t1, 8($sp)
+	move $v0, $sp
 	jr $ra
 
+	# início da matriz em a0, nro linha em a1 e nro colunas em a2
 imprime_matriz:
+	move $t0, $a0
+	move $t2, $a1
+	move $t3, $a2
 	add $t5, $zero, $zero						#zera contador primário
 	add $t6, $zero, $zero						#zera contador secundário
-	sub $sp, $sp, $t3							#volta ao primeiro valor da pilha
+	mul $t2, $t1, $t2
 loop2:
-	ldc1 $f12, 0($sp)							#carrega valor em f12
+	ldc1 $f12, 0($t0)							#carrega valor em f12
 	li $v0, 3									#imprime valor
 	syscall
 	li $v0, 4									#carrega string
@@ -64,10 +104,10 @@ loop2:
 	li $v0, 4									#carrega string
 	la $a0, tab									#tab
 	syscall
-	addi $sp, $sp, 8							#incremento para o próximo elemento da pilha
+	addi $t0, $t0, 8							#incremento para o próximo elemento da pilha
 	addi $t5, $t5, 1							#incrementa contador primário
 	addi $t6, $t6, 1							#incrementa contador secundário
-	bne $t6, $t1, loop2							#cont. secundário != nº colunas?
+	bne $t6, $a2, loop2							#cont. secundário != nº colunas?
 	add $t6, $zero,$zero						#zera cont. secundário
 	li $v0, 4									#carrega string
 	la $a0, newl								#Pula linha
@@ -120,6 +160,8 @@ fim_ident_r:
 	#j imprime_matriz
 #saindo dessa função temos na memória a matriz original e a matriz identidade de mesma ordem na memória
 
+
+# INÍCIO DA INVERSA
 augmented:
 	sub $sp, $sp, $t3							#volta ao primeiro valor da matriz identidade
 	sll $t4, $t3, 2
@@ -333,9 +375,7 @@ fim_reduce_r:
 fim_echelon1:
 
 	
-	#ATÉ AQUI TÁ CERTO MAS FALTA ARREDONDAR
-	
-	#REVERSE MATRIX
+#REVERSE MATRIX
 	subi $t4, $t0, 1							#inicializa o contador de loops
 for_reverse1:
 	beq $t4, $zero, fim_reverse1
@@ -404,7 +444,7 @@ fim_reverse1:
 	
 	
 
-	#CANONICAL MATRIX
+#CANONICAL MATRIX
 	add $t4, $zero, $zero						#inicializa o contador de linhas
 for_canonical_r:
 	beq $t4, $t0, fim_canonical_r
@@ -443,7 +483,7 @@ fim_canonical_r:
 
 
 
-	#MATRIZ INVERSA
+#MATRIZ INVERSA
 	#Abre espaço para a matriz inversa e salva em $s3
 	move $sp, $s2
 	sub $sp, $sp, $t3
@@ -479,7 +519,7 @@ fim_inverse_c:
 	j for_inverse_r
 fim_inverse_r:
 	
-	#MOSTRA A MATRIZ INVERTIDA
+#MOSTRA A MATRIZ INVERTIDA
 	add $t4, $zero, $zero
 for_x_r:
 	beq $t4, $t0, fim_x_r
@@ -506,6 +546,94 @@ fim_x_c:
 	j for_x_r
 fim_x_r:
 	jr $ra
+	
+
+# Recebe o endereço da primeira matriz, seu número de linhas e número de colunas na pilha
+# O endereço da segunda matriz, seu número de linhas e número de colunas na pilha
+#MULTIPLICAÇÃO DE MATRIZES
+mult_matrizes:
+	lw $s0, 0($sp)	#M1
+	lw $s1, 4($sp)	#L1
+	lw $s2, 8($sp)	#C1
+	lw $s3, 12($sp)	#M2
+	lw $s4, 16($sp)	#L2
+	lw $s5, 20($sp)	#C2
+	
+	mul $t0, $s1, $s5
+	sll $t0, $t0, 3
+	sub $sp, $sp, $t0
+	
+	move $t0, $zero
+for_mult_r:
+	slt $t1, $t0, $s1
+	beq $t1, $zero, fim_mult_r
+	move $t1, $zero
+for_mult_c:
+	slt $t2, $t1, $s5
+	beq $t2, $zero, fim_mult_c
+	
+	# Pega o M3[i][j]
+	mul $t4, $t0, $s5
+	add $t4, $t4, $t1
+	sll $t4, $t4, 3
+	add $t4, $t4, $sp
+	move $t9, $zero
+	mtc1 $t9, $f12
+	cvt.d.w $f12, $f12
+	sdc1 $f12, 0($t4)						# M3[i][j] = 0
+	
+	move $t2, $zero
+for_mult_m:
+	slt $t3, $t2, $s2
+	beq $t3, $zero, fim_mult_m
+	
+	# Pega o M1[i][k]
+	mul $t5, $t0, $s2
+	add $t5, $t5, $t2
+	sll $t5, $t5, 3
+	add $t5, $t5, $s0
+	ldc1 $f2, 0($t5)						# M1[i][k] = f2
+	
+	# Pega o M2[k][j]
+	mul $t5, $t2, $s5
+	add $t5, $t5, $t1
+	sll $t5, $t5, 3
+	add $t5, $t5, $s3
+	ldc1 $f4, 0($t5)						# M1[k][j] = f4
+	
+	mul.d $f6, $f2, $f4
+	
+	# Pega o M3[i][j]
+	mul $t4, $t0, $s5
+	add $t4, $t4, $t1
+	sll $t4, $t4, 3
+	add $t4, $t4, $sp
+	ldc1 $f0, 0($t4)						# M3[i][j] = f0
+	
+	add.d $f8, $f0, $f6
+	sdc1 $f8, 0($t4)
+	
+	addi $t2, $t2, 1
+	j for_mult_m
+fim_mult_m:
+	addi $t1, $t1, 1
+	j for_mult_c
+fim_mult_c:
+	addi $t0, $t0, 1
+	j for_mult_r
+fim_mult_r:
+	move $v0, $sp
+	jr $ra
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	
 	
 fail: 
